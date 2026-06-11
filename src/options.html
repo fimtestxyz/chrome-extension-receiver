@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Capture Settings</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f7f9;
+      color: #333;
+      line-height: 1.5;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    h1 { font-size: 24px; margin-bottom: 24px; color: #1a1a1a; }
+    h2 { font-size: 18px; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    
+    .section { margin-bottom: 25px; }
+    .field-group { margin-bottom: 15px; display: flex; flex-direction: column; }
+    label { font-weight: 600; margin-bottom: 5px; font-size: 14px; }
+    
+    input[type="text"], input[type="url"] {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .btn-primary { background: #007aff; color: white; }
+    .btn-primary:hover { background: #005bb5; }
+    .btn-secondary { background: #eef2f5; color: #333; border: 1px solid #ddd; }
+    .btn-secondary:hover { background: #e2e8ed; }
+    .btn-danger { background: #ff3b30; color: white; }
+    
+    .whitelist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      background: #f9f9f9;
+      border: 1px solid #eee;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    .whitelist-pattern { flex-grow: 1; font-family: monospace; font-size: 13px; }
+    
+    #status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+      background: gray;
+    }
+    .status-online { background: #34c759 !important; }
+    .status-offline { background: #ff3b30 !important; }
+    
+    .footer {
+      margin-top: 40px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>⚙️ Traffic Capture Settings</h1>
+    
+    <div class="section">
+      <h2>Backend Configuration</h2>
+      <div class="field-group">
+        <label>API Base URL</label>
+        <input type="url" id="backendUrl" placeholder="http://localhost:8000">
+      </div>
+      <div class="field-group">
+        <label>Endpoint</label>
+        <input type="text" id="backendEndpoint" placeholder="/capture">
+      </div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <button id="testConnection" class="btn btn-secondary">Test Connection</button>
+        <span id="connectionStatus">
+          <span id="status-indicator"></span>
+          <span id="status-text">Unknown</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>URL Whitelist</h2>
+      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+        <input type="text" id="newPattern" style="flex-grow: 1;" placeholder="*://api.example.com/*">
+        <button id="addPattern" class="btn btn-primary">Add</button>
+      </div>
+      <div id="whitelistContainer">
+        <!-- Items added here -->
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Advanced Settings</h2>
+      <div class="field-group" style="flex-direction: row; align-items: center; gap: 10px;">
+        <input type="checkbox" id="sanitizeHeaders">
+        <label for="sanitizeHeaders" style="margin: 0;">Sanitize sensitive headers (Auth, Cookie)</label>
+      </div>
+    </div>
+
+    <div class="footer">
+      <button id="resetDefaults" class="btn btn-secondary">Reset to Defaults</button>
+      <button id="saveSettings" class="btn btn-primary">Save All Settings</button>
+    </div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>
