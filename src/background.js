@@ -1,54 +1,167 @@
-// Background service worker for Chrome Extension Receiver
+import PatternMatcher from './pattern-matcher.js';
+import QueueManager from './queue-manager.js';
 
-// Listen for messages from other extensions
-chrome.runtime.onMessageExternal.addListener(
-  (request, sender, sendResponse) => {
-    console.log('Received external message:', request);
-    console.log('From extension:', sender.id);
+// State tracking
+const activeDebuggers = new Map(); // tabId -> debuggerState
+const requestCache = new Map();    // requestId -> requestData
+
+/**
+ * Forward a capture to the backend
+ */
+async function forwardToApi(payload) {
+  try {
+    const config = await chrome.storage.local.get(['backendUrl', 'backendEndpoint', 'settings']);
+    const url = (config.backendUrl || 'http://localhost:8000') + (config.backendEndpoint || '/capture');
     
-    // Store the received message
-    chrome.storage.local.get(['messages'], (result) => {
-      const messages = result.messages || [];
-      messages.push({
-        timestamp: Date.now(),
-        senderId: sender.id,
-        data: request
-      });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    console.log('Successfully forwarded capture to API');
+  } catch (e) {
+    console.warn('API Forward failed, queuing for retry:', e.message);
+    await QueueManager.enqueue(payload);
+  }
+}
+
+/**
+ * CDP Event Handlers
+ */
+const CDP_HANDLERS = {
+  'Network.requestWillBeSent': (params, tabId) => {
+    const { requestId, request } = params;
+    const url = request.url;
+
+    // 1. Check Whitelist
+    chrome.storage.local.get(['whitelist'], (res) => {
+      if (!PatternMatcher.matches(url, res.whitelist)) return;
+
+      console.log(`[Capture] Request: ${request.method} ${url}`);
       
-      // Keep only last 100 messages
-      if (messages.length > 100) {
-        messages.shift();
+      // Store request metadata
+      requestCache.set(requestId, {
+        requestId,
+        tabId,
+        timestamp: Date.now(),
+        request: {
+          method: request.method,
+          url: url,
+          headers: request.headers,
+          postData: request.postData,
+          resourceType: params.type
+        }
+      });
+    });
+  },
+
+  'Network.responseReceived': (params, tabId) => {
+    const { requestId, response } = params;
+    const reqData = requestCache.get(requestId);
+    if (!reqData) return;
+
+    reqData.response = {
+      status: response.status,
+      headers: response.headers
+    };
+  },
+
+  'Network.loadingFinished': async (params, tabId) => {
+    const { requestId } = params;
+    const reqData = requestCache.get(requestId);
+    if (!reqData) return;
+
+    try {
+      // 2. Capture Response Body
+      chrome.debugger.sendCommand({ tabId }, 'Network.getResponseBody', { requestId }, (result) => {
+        if (chrome.runtime.lastError) {
+          console.warn('Could not get response body:', chrome.runtime.lastError.message);
+          reqData.response.body = '[Unavailable]';
+          reqData.response.base64Encoded = false;
+        } else {
+          reqData.response.body = result.body;
+          reqData.response.base64Encoded = result.base64Encoded;
+        }
+
+        // 3. Forward to API
+        forwardToApi(reqData);
+        
+        // Cleanup cache
+        requestCache.delete(requestId);
+      });
+    } catch (e) {
+      console.error('CDP Body Capture Error:', e);
+    }
+  }
+};
+
+/**
+ * Debugger Lifecycle Management
+ */
+async function attachDebugger(tabId) {
+  try {
+    await chrome.debugger.attach({ tabId }, '1.3', () => {
+      if (chrome.runtime.lastError) {
+        console.error(`Failed to attach to tab ${tabId}:`, chrome.runtime.lastError.message);
+        return;
       }
       
-      chrome.storage.local.set({ messages }, () => {
-        console.log('Message stored');
+      console.log(`Debugger attached to tab ${tabId}`);
+      activeDebuggers.set(tabId, true);
+
+      // Enable Network domain
+      chrome.debugger.sendCommand({ tabId }, 'Network.enable', {}, () => {
+        if (chrome.runtime.lastError) console.error('Network.enable failed:', chrome.runtime.lastError.message);
       });
     });
-    
-    // Send response back to sender
-    sendResponse({ status: 'received', timestamp: Date.now() });
-    return true; // Keep channel open for async response
+  } catch (e) {
+    console.error('Attachment error:', e);
   }
-);
+}
 
-// Listen for messages from within this extension
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Received internal message:', request);
+// Handle CDP Events
+chrome.debugger.onEvent.addListener((event) => {
+  const { tabId } = event;
+  const method = event.method;
   
-  if (request.action === 'getMessages') {
-    chrome.storage.local.get(['messages'], (result) => {
-      sendResponse({ messages: result.messages || [] });
-    });
-    return true;
-  }
-  
-  if (request.action === 'clearMessages') {
-    chrome.storage.local.set({ messages: [] }, () => {
-      sendResponse({ status: 'cleared' });
-    });
-    return true;
+  if (CDP_HANDLERS[method]) {
+    CDP_HANDLERS[method](event.params, tabId);
   }
 });
 
-// Log when extension starts
-console.log('Chrome Extension Receiver background service worker started');
+// Auto-attach to tabs
+chrome.tabs.onActivated.addListener(async (activeTabId) => {
+  await attachDebugger(activeTabId);
+});
+
+chrome.tabs.onCreated.addListener(async (tab) => {
+  await attachDebugger(tab.id);
+});
+
+chrome.debugger.onDetach.addListener((tabId) => {
+  console.log(`Debugger detached from tab ${tabId}`);
+  activeDebuggers.delete(tabId);
+});
+
+// Periodic Queue Flush
+setInterval(async () => {
+  const queue = await QueueManager.getQueue();
+  if (queue.length === 0) return;
+
+  const now = Date.now();
+  const readyToRetry = queue.filter(item => item.nextRetry <= now);
+
+  for (const item of readyToRetry) {
+    try {
+      await forwardToApi(item.payload);
+      // If successful, remove from queue
+      await QueueManager.dequeue(); // This is simple FIFO, might need ID based remove
+    } catch (e) {
+      await QueueManager.markFailed(item.id);
+    }
+  }
+}, 30000);
+
+console.log('CDP Capture Service Worker Initialized');

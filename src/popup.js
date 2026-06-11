@@ -1,47 +1,44 @@
-// Popup UI script
+async function updateStatus() {
+  // 1. Check Debugger Status
+  // Since background.js handles debugger, we check active debuggers
+  // In a real extension, you'd use a message passing system to query the service worker
+  chrome.runtime.sendMessage({ action: 'getDebuggerStatus' }, (response) => {
+    const led = document.getElementById('debugger-led');
+    const txt = document.getElementById('debugger-text');
+    if (response?.active) {
+      led.className = 'indicator online';
+      txt.textContent = 'Active';
+    } else {
+      led.className = 'indicator offline';
+      txt.textContent = 'Inactive';
+    }
+  });
 
-function formatTime(timestamp) {
-  const date = new Date(timestamp);
-  return date.toLocaleTimeString() + ' ' + date.toLocaleDateString();
-}
-
-function displayMessages(messages) {
-  const container = document.getElementById('messages');
+  // 2. Check Backend Status
+  const config = await chrome.storage.local.get(['backendUrl', 'backendEndpoint']);
+  const url = (config.backendUrl || 'http://localhost:8000') + (config.backendEndpoint || '/health');
   
-  if (!messages || messages.length === 0) {
-    container.innerHTML = '<div class="empty-state">No messages received yet</div>';
-    return;
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      document.getElementById('backend-led').className = 'indicator online';
+      document.getElementById('backend-text').textContent = 'Online';
+    }
+  } catch (e) {
+    document.getElementById('backend-led').className = 'indicator offline';
+    document.getElementById('backend-text').textContent = 'Offline';
   }
-  
-  // Sort by timestamp, newest first
-  const sorted = [...messages].sort((a, b) => b.timestamp - a.timestamp);
-  
-  container.innerHTML = sorted.map(msg => `
-    <div class="message">
-      <div class="message-time">${formatTime(msg.timestamp)}</div>
-      <div class="message-sender">From: ${msg.senderId}</div>
-      <div class="message-data">${JSON.stringify(msg.data, null, 2)}</div>
-    </div>
-  `).join('');
-}
 
-function loadMessages() {
-  chrome.runtime.sendMessage({ action: 'getMessages' }, (response) => {
-    displayMessages(response.messages);
+  // 3. Check Queue
+  chrome.storage.local.get(['capture_queue'], (res) => {
+    const queue = res.capture_queue || [];
+    document.getElementById('queue-count').textContent = `${queue.length} pending`;
   });
 }
 
-document.getElementById('refresh').addEventListener('click', () => {
-  loadMessages();
+document.getElementById('open-options').addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
 });
 
-document.getElementById('clear').addEventListener('click', () => {
-  if (confirm('Clear all received messages?')) {
-    chrome.runtime.sendMessage({ action: 'clearMessages' }, () => {
-      loadMessages();
-    });
-  }
-});
-
-// Load messages on popup open
-loadMessages();
+setInterval(updateStatus, 2000);
+updateStatus();
