@@ -21,14 +21,14 @@ const PatternMatcher = {
 
   /**
    * Checks if a URL matches any of the enabled patterns in the whitelist
-   * @param {string} url 
-   * @param {Array} whitelist 
-   * @returns {boolean}
+   * @param {string} url
+   * @param {Array} whitelist
+   * @returns {string|null} Returns the group_name if matched, null otherwise
    */
   matches(url, whitelist) {
-    if (!whitelist || whitelist.length === 0) return false;
-    
-    return whitelist.some(item => {
+    if (!whitelist || whitelist.length === 0) return null;
+
+    const match = whitelist.find(item => {
       if (!item.enabled) return false;
       try {
         const regex = this.compile(item.pattern);
@@ -38,6 +38,8 @@ const PatternMatcher = {
         return false;
       }
     });
+
+    return match ? (match.group_name || 'default') : null;
   }
 };
 

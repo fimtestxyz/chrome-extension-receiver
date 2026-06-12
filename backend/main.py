@@ -36,18 +36,36 @@ def capture():
     data = request.json
     if not data:
         return jsonify({"status": "error", "message": "No JSON payload provided"}), 400
-    
+
+    def log_to_group(payload):
+        """Log payload to group-specific log file"""
+        group_name = payload.get('group_name', 'default')
+        log_filename = f"{group_name}.log"
+
+        # Get or create logger for this group
+        group_logger = logging.getLogger(f"group.{group_name}")
+        if not group_logger.handlers:
+            handler = logging.FileHandler(log_filename)
+            handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s'))
+            group_logger.addHandler(handler)
+            group_logger.setLevel(logging.INFO)
+
+        group_logger.info(f"Captured request: {payload.get('request', {}).get('url', 'Unknown')}")
+        group_logger.info(f"Full payload: {payload}")
+
     # Logic for batch capture
     if 'captures' in data and isinstance(data['captures'], list):
         batch = data['captures']
         captures.extend(batch)
         logger.info(f"Received batch of {len(batch)} captures")
+        for capture_item in batch:
+            log_to_group(capture_item)
         return jsonify({"status": "success", "received": len(batch)}), 200
-    
+
     # Single capture
     captures.append(data)
-    logger.info(f"Captured request: {data.get('request', {}).get('url', 'Unknown')}")
-    
+    log_to_group(data)
+
     return jsonify({"status": "success"}), 200
 
 if __name__ == '__main__':

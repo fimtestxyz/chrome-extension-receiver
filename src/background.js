@@ -9,23 +9,28 @@ const requestCache = new Map();    // requestId -> requestData
  * Forward a capture to the backend
  */
 async function forwardToApi(payload) {
-  try {
-    const config = await chrome.storage.local.get(['backendUrl', 'backendEndpoint', 'settings']);
-    const url = (config.backendUrl || 'http://localhost:8000') + (config.backendEndpoint || '/capture');
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    try {
+      const config = await chrome.storage.local.get(['backendUrl', 'backendEndpoint', 'settings']);
+      let baseUrl = (config.backendUrl || 'http://localhost:8000').replace(/\/$/, '');
+      let endpoint = (config.backendEndpoint || '/capture');
+      if (!endpoint.startsWith('/')) endpoint = '/' + endpoint;
+      endpoint = endpoint.replace(/\/$/, '');
 
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    console.log('Successfully forwarded capture to API');
-  } catch (e) {
-    console.warn('API Forward failed, queuing for retry:', e.message);
-    await QueueManager.enqueue(payload);
+      const url = baseUrl + endpoint;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      console.log('Successfully forwarded capture to API');
+    } catch (e) {
+      console.warn('API Forward failed, queuing for retry:', e.message);
+      await QueueManager.enqueue(payload);
+    }
   }
-}
 
 /**
  * CDP Event Handlers
@@ -37,15 +42,17 @@ const CDP_HANDLERS = {
 
     // 1. Check Whitelist
     chrome.storage.local.get(['whitelist'], (res) => {
-      if (!PatternMatcher.matches(url, res.whitelist)) return;
+      const groupName = PatternMatcher.matches(url, res.whitelist);
+      if (!groupName) return;
 
-      console.log(`[Capture] Request: ${request.method} ${url}`);
-      
+      console.log(`[Capture] Request: ${request.method} ${url} [Group: ${groupName}]`);
+
       // Store request metadata
       requestCache.set(requestId, {
         requestId,
         tabId,
         timestamp: Date.now(),
+        group_name: groupName,
         request: {
           method: request.method,
           url: url,
@@ -101,13 +108,31 @@ const CDP_HANDLERS = {
  * Debugger Lifecycle Management
  */
 async function attachDebugger(tabId) {
+  if (!tabId || typeof tabId !== 'number') {
+    console.error('Invalid tabId provided to attachDebugger:', tabId);
+    return;
+  }
+
+  if (activeDebuggers.has(tabId)) {
+    return; // Already attached
+  }
+
   try {
+    // Check if the tab is a restricted URL (e.g., chrome://)
+    const tab = await chrome.tabs.get(tabId);
+    if (tab?.url?.startsWith('chrome://') || tab?.url?.startsWith('edge://') || tab?.url?.startsWith('about:')) {
+      return; // Silently skip restricted URLs
+    }
+
     await chrome.debugger.attach({ tabId }, '1.3', () => {
       if (chrome.runtime.lastError) {
-        console.error(`Failed to attach to tab ${tabId}:`, chrome.runtime.lastError.message);
+        // Ignore "already attached" errors as they are harmless
+        if (!chrome.runtime.lastError.message.includes('already attached')) {
+          console.error(`Failed to attach to tab ${tabId}:`, chrome.runtime.lastError.message);
+        }
         return;
       }
-      
+
       console.log(`Debugger attached to tab ${tabId}`);
       activeDebuggers.set(tabId, true);
 
@@ -117,27 +142,28 @@ async function attachDebugger(tabId) {
       });
     });
   } catch (e) {
-    console.error('Attachment error:', e);
+    console.error('Attachment error for tab ' + tabId + ':', e);
   }
 }
 
 // Handle CDP Events
-chrome.debugger.onEvent.addListener((event) => {
-  const { tabId } = event;
-  const method = event.method;
-  
+chrome.debugger.onEvent.addListener((source, method, params) => {
+  const tabId = source.tabId;
+
   if (CDP_HANDLERS[method]) {
-    CDP_HANDLERS[method](event.params, tabId);
+    CDP_HANDLERS[method](params, tabId);
   }
 });
 
 // Auto-attach to tabs
-chrome.tabs.onActivated.addListener(async (activeTabId) => {
-  await attachDebugger(activeTabId);
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  await attachDebugger(activeInfo.tabId);
 });
 
 chrome.tabs.onCreated.addListener(async (tab) => {
-  await attachDebugger(tab.id);
+  if (tab.id) {
+    await attachDebugger(tab.id);
+  }
 });
 
 chrome.debugger.onDetach.addListener((tabId) => {
@@ -163,5 +189,13 @@ setInterval(async () => {
     }
   }
 }, 30000);
+
+// Handle messages from popup and other scripts
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'getDebuggerStatus') {
+    sendResponse({ active: activeDebuggers.size > 0 });
+  }
+  return true; // Keep channel open for async responses
+});
 
 console.log('CDP Capture Service Worker Initialized');

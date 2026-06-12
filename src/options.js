@@ -4,7 +4,7 @@ const DEFAULT_CONFIG = {
   backendUrl: 'http://localhost:8000',
   backendEndpoint: '/capture',
   whitelist: [
-    { pattern: '*://httpbin.org/*', enabled: true, description: 'Test Site' }
+    { pattern: '*://httpbin.org/*', enabled: true, description: 'Test Site', group_name: 'default' }
   ],
   settings: {
     sanitizeHeaders: true,
@@ -33,7 +33,8 @@ function getWhitelistFromUI() {
   items.forEach(item => {
     whitelist.push({
       pattern: item.querySelector('.whitelist-pattern').value,
-      enabled: item.querySelector('.pattern-toggle').checked
+      enabled: item.querySelector('.pattern-toggle').checked,
+      group_name: item.querySelector('.whitelist-group').value || 'default'
     });
   });
   return whitelist;
@@ -42,14 +43,25 @@ function getWhitelistFromUI() {
 function renderWhitelist(whitelist) {
   const container = document.getElementById('whitelistContainer');
   container.innerHTML = '';
-  
+
+  if (!whitelist || whitelist.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">📋</div>
+        <div class="empty-state-text">No URL patterns added yet. Add one above to start capturing traffic.</div>
+      </div>
+    `;
+    return;
+  }
+
   whitelist.forEach((item, index) => {
     const div = document.createElement('div');
     div.className = 'whitelist-item';
     div.innerHTML = `
-      <input type="checkbox" class="pattern-toggle" ${item.enabled ? 'checked' : ''}>
-      <input type="text" class="whitelist-pattern" value="${item.pattern}" style="flex-grow: 1;">
-      <button class="btn btn-danger delete-pattern" data-index="${index}">Delete</button>
+      <input type="checkbox" class="pattern-toggle" ${item.enabled ? 'checked' : ''} data-index="${index}" aria-label="Enable/disable pattern">
+      <input type="text" class="whitelist-pattern" value="${item.pattern}" placeholder="*://example.com/*" data-index="${index}">
+      <input type="text" class="whitelist-group" value="${item.group_name || 'default'}" placeholder="Group" data-index="${index}">
+      <button class="btn btn-sm btn-danger delete-pattern" data-index="${index}" aria-label="Delete pattern">🗑️</button>
     `;
     container.appendChild(div);
   });
@@ -70,43 +82,49 @@ async function testConnection() {
   const url = document.getElementById('backendUrl').value + document.getElementById('backendEndpoint').value;
   const statusText = document.getElementById('status-text');
   const indicator = document.getElementById('status-indicator');
-  
-  statusText.textContent = 'Testing...';
+  const badge = document.getElementById('connectionStatus');
+
+  statusText.textContent = 'Testing…';
   indicator.className = '';
+  badge.className = 'status-badge';
 
   try {
-    // Use fetch with a short timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
-    
-    const response = await fetch(url, { 
-      method: 'GET', 
-      signal: controller.signal 
+
+    const response = await fetch(url.replace('/capture', '/health'), {
+      method: 'GET',
+      signal: controller.signal
     });
-    
+
     clearTimeout(timeoutId);
-    
+
     if (response.ok) {
       statusText.textContent = 'Online';
       indicator.className = 'status-online';
+      badge.className = 'status-badge online';
     } else {
       throw new Error('API responded with error');
     }
   } catch (e) {
     statusText.textContent = 'Offline';
     indicator.className = 'status-offline';
+    badge.className = 'status-badge offline';
   }
 }
 
 document.getElementById('saveSettings').addEventListener('click', saveSettings);
 document.getElementById('addPattern').addEventListener('click', () => {
-  const input = document.getElementById('newPattern');
-  const pattern = input.value.trim();
+  const patternInput = document.getElementById('newPattern');
+  const groupInput = document.getElementById('newGroup');
+  const pattern = patternInput.value.trim();
+  const groupName = groupInput.value.trim() || 'default';
   if (pattern) {
     const currentList = getWhitelistFromUI();
-    currentList.push({ pattern, enabled: true });
+    currentList.push({ pattern, enabled: true, group_name: groupName });
     renderWhitelist(currentList);
-    input.value = '';
+    patternInput.value = '';
+    groupInput.value = '';
   }
 });
 

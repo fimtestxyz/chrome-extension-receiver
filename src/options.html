@@ -2,133 +2,608 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Capture Settings</title>
+  <title>Traffic Capture Settings</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    * {
+      box-sizing: border-box;
       margin: 0;
-      padding: 20px;
-      background-color: #f5f7f9;
-      color: #333;
-      line-height: 1.5;
+      padding: 0;
     }
-    .container {
-      max-width: 800px;
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #1a202c;
+      line-height: 1.6;
+    }
+
+    .header {
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+      padding: 24px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .header-content {
+      max-width: 1000px;
       margin: 0 auto;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a202c;
+      letter-spacing: -0.02em;
+    }
+
+    .version-badge {
+      background: #f7fafc;
+      color: #718096;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      border: 1px solid #e2e8f0;
+    }
+
+    .container {
+      max-width: 1000px;
+      margin: 32px auto;
+      padding: 0 32px 32px;
+    }
+
+    .card {
       background: white;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      margin-bottom: 24px;
+      overflow: hidden;
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
     }
-    h1 { font-size: 24px; margin-bottom: 24px; color: #1a1a1a; }
-    h2 { font-size: 18px; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; }
-    
-    .section { margin-bottom: 25px; }
-    .field-group { margin-bottom: 15px; display: flex; flex-direction: column; }
-    label { font-weight: 600; margin-bottom: 5px; font-size: 14px; }
-    
-    input[type="text"], input[type="url"] {
-      padding: 8px 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
+
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     }
-    
-    .btn {
-      padding: 8px 16px;
-      border-radius: 6px;
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
-      transition: background 0.2s;
+
+    .card-header {
+      padding: 24px 28px;
+      border-bottom: 1px solid #f1f5f9;
+      background: linear-gradient(to right, #fafbfc, #ffffff);
     }
-    .btn-primary { background: #007aff; color: white; }
-    .btn-primary:hover { background: #005bb5; }
-    .btn-secondary { background: #eef2f5; color: #333; border: 1px solid #ddd; }
-    .btn-secondary:hover { background: #e2e8ed; }
-    .btn-danger { background: #ff3b30; color: white; }
-    
-    .whitelist-item {
+
+    .card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a202c;
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 10px;
-      background: #f9f9f9;
-      border: 1px solid #eee;
-      border-radius: 8px;
+      margin-bottom: 6px;
+      letter-spacing: -0.01em;
+    }
+
+    .card-subtitle {
+      font-size: 13px;
+      color: #64748b;
+      font-weight: 400;
+    }
+
+    .card-body {
+      padding: 28px;
+    }
+
+    .section-icon {
+      font-size: 20px;
+      opacity: 0.9;
+    }
+
+    .field-group {
+      margin-bottom: 20px;
+    }
+
+    .field-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
       margin-bottom: 8px;
+      font-size: 14px;
+      color: #334155;
+      letter-spacing: -0.01em;
     }
-    .whitelist-pattern { flex-grow: 1; font-family: monospace; font-size: 13px; }
-    
-    #status-indicator {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      margin-right: 5px;
-      background: gray;
+
+    .label-hint {
+      font-weight: 400;
+      color: #94a3b8;
+      font-size: 13px;
+      margin-left: 4px;
     }
-    .status-online { background: #34c759 !important; }
-    .status-offline { background: #ff3b30 !important; }
-    
-    .footer {
-      margin-top: 40px;
-      padding-top: 20px;
-      border-top: 1px solid #eee;
+
+    input[type="text"],
+    input[type="url"] {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: all 0.2s;
+      background: #ffffff;
+    }
+
+    input[type="text"]:focus,
+    input[type="url"]:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    input[type="text"]::placeholder,
+    input[type="url"]::placeholder {
+      color: #cbd5e1;
+    }
+
+    .input-group {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 12px;
+    }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s;
+      font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      box-shadow: 0 4px 14px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      background: #f1f5f9;
+      color: #475569;
+      border: 2px solid #e2e8f0;
+    }
+
+    .btn-secondary:hover {
+      background: #e2e8f0;
+      border-color: #cbd5e1;
+    }
+
+    .btn-danger {
+      background: #ef4444;
+      color: white;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      background: #dc2626;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+
+    .connection-test {
       display: flex;
-      justify-content: flex-end;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 10px;
+      margin-top: 16px;
+      border: 2px solid #e2e8f0;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    #status-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #94a3b8;
+      display: inline-block;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .status-online {
+      background: #10b981 !important;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    }
+
+    .status-offline {
+      background: #ef4444 !important;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+    }
+
+    .status-badge.online {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .status-badge.offline {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .whitelist-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .whitelist-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #fafbfc;
+      border: 2px solid #e2e8f0;
+      border-radius: 12px;
+      transition: all 0.2s;
+    }
+
+    .whitelist-item:hover {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+    }
+
+    .whitelist-item input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .whitelist-item input[type="text"] {
+      margin-bottom: 0;
+    }
+
+    .whitelist-pattern {
+      font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+      font-size: 13px;
+      background: white;
+    }
+
+    .whitelist-group {
+      font-size: 13px;
+      min-width: 140px;
+    }
+
+    .group-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      background: linear-gradient(135deg, #e0e7ff 0%, #ddd6fe 100%);
+      color: #5b21b6;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .add-pattern-form {
+      display: flex;
       gap: 10px;
+      align-items: stretch;
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 2px dashed #cbd5e1;
+    }
+
+    .add-pattern-form input {
+      flex: 1;
+      margin-bottom: 0;
+    }
+
+    .add-pattern-form input:first-child {
+      flex: 2;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #94a3b8;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    .empty-state-text {
+      font-size: 15px;
+      font-weight: 500;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 10px;
+      border: 2px solid #e2e8f0;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .checkbox-group:hover {
+      background: #f1f5f9;
+      border-color: #cbd5e1;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      cursor: pointer;
+      accent-color: #667eea;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-weight: 500;
+      flex: 1;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 24px 32px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      margin-top: 32px;
+    }
+
+    .footer-left {
+      color: #64748b;
+      font-size: 13px;
+    }
+
+    .footer-right {
+      display: flex;
+      gap: 12px;
+    }
+
+    .info-text {
+      display: flex;
+      align-items: start;
+      gap: 10px;
+      padding: 14px;
+      background: #eff6ff;
+      border-left: 3px solid #3b82f6;
+      border-radius: 8px;
+      font-size: 13px;
+      color: #1e40af;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+
+    .info-icon {
+      font-size: 16px;
+      margin-top: 1px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 16px 16px;
+        margin: 16px auto;
+      }
+
+      .card-body {
+        padding: 20px;
+      }
+
+      .header-content {
+        padding: 0 16px;
+      }
+
+      .input-group {
+        grid-template-columns: 1fr;
+      }
+
+      .footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .footer-right {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>⚙️ Traffic Capture Settings</h1>
-    
-    <div class="section">
-      <h2>Backend Configuration</h2>
-      <div class="field-group">
-        <label>API Base URL</label>
-        <input type="url" id="backendUrl" placeholder="http://localhost:8000">
+  <div class="header">
+    <div class="header-content">
+      <div class="logo">
+        <div class="logo-icon">🔍</div>
+        <h1>Traffic Capture</h1>
       </div>
-      <div class="field-group">
-        <label>Endpoint</label>
-        <input type="text" id="backendEndpoint" placeholder="/capture">
-      </div>
-      <div style="display: flex; align-items: center; gap: 10px;">
-        <button id="testConnection" class="btn btn-secondary">Test Connection</button>
-        <span id="connectionStatus">
-          <span id="status-indicator"></span>
-          <span id="status-text">Unknown</span>
-        </span>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>URL Whitelist</h2>
-      <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-        <input type="text" id="newPattern" style="flex-grow: 1;" placeholder="*://api.example.com/*">
-        <button id="addPattern" class="btn btn-primary">Add</button>
-      </div>
-      <div id="whitelistContainer">
-        <!-- Items added here -->
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>Advanced Settings</h2>
-      <div class="field-group" style="flex-direction: row; align-items: center; gap: 10px;">
-        <input type="checkbox" id="sanitizeHeaders">
-        <label for="sanitizeHeaders" style="margin: 0;">Sanitize sensitive headers (Auth, Cookie)</label>
-      </div>
-    </div>
-
-    <div class="footer">
-      <button id="resetDefaults" class="btn btn-secondary">Reset to Defaults</button>
-      <button id="saveSettings" class="btn btn-primary">Save All Settings</button>
+      <div class="version-badge">v1.0.0</div>
     </div>
   </div>
+
+  <div class="container">
+    <!-- Backend Configuration Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="section-icon">🔌</span>
+          Backend Configuration
+        </div>
+        <div class="card-subtitle">Configure the backend API endpoint for traffic capture</div>
+      </div>
+      <div class="card-body">
+        <div class="input-group">
+          <div class="field-group">
+            <label>API Base URL</label>
+            <input type="url" id="backendUrl" placeholder="http://localhost:8000">
+          </div>
+          <div class="field-group">
+            <label>Endpoint <span class="label-hint">(path)</span></label>
+            <input type="text" id="backendEndpoint" placeholder="/capture">
+          </div>
+        </div>
+
+        <div class="connection-test">
+          <button id="testConnection" class="btn btn-secondary btn-sm">Test Connection</button>
+          <span class="status-badge" id="connectionStatus">
+            <span id="status-indicator"></span>
+            <span id="status-text">Not tested</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- URL Whitelist Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="section-icon">🎯</span>
+          URL Whitelist & Groups
+        </div>
+        <div class="card-subtitle">Define URL patterns to capture and organize them into groups</div>
+      </div>
+      <div class="card-body">
+        <div class="info-text">
+          <span class="info-icon">💡</span>
+          <span>Group URLs to log them to separate files (e.g., <code>group_name.log</code>). Use match patterns like <code>*://api.example.com/*</code> for wildcards.</span>
+        </div>
+
+        <div class="add-pattern-form">
+          <input type="text" id="newPattern" placeholder="*://api.example.com/*">
+          <input type="text" id="newGroup" placeholder="Group name (optional)">
+          <button id="addPattern" class="btn btn-primary">
+            <span>➕</span>
+            Add Pattern
+          </button>
+        </div>
+
+        <div id="whitelistContainer" class="whitelist-container">
+          <!-- Items dynamically added here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Advanced Settings Card -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span class="section-icon">⚙️</span>
+          Advanced Settings
+        </div>
+        <div class="card-subtitle">Additional privacy and security options</div>
+      </div>
+      <div class="card-body">
+        <div class="checkbox-group" onclick="document.getElementById('sanitizeHeaders').click();">
+          <input type="checkbox" id="sanitizeHeaders" onclick="event.stopPropagation();">
+          <label for="sanitizeHeaders">
+            Sanitize sensitive headers
+            <span class="label-hint">(Authorization, Cookie, etc.)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="footer">
+      <div class="footer-left">
+        Changes are saved to browser local storage
+      </div>
+      <div class="footer-right">
+        <button id="resetDefaults" class="btn btn-secondary">
+          <span>↺</span>
+          Reset to Defaults
+        </button>
+        <button id="saveSettings" class="btn btn-primary">
+          <span>💾</span>
+          Save All Settings
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="options.js"></script>
 </body>
 </html>
